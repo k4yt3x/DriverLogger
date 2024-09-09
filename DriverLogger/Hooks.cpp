@@ -53,7 +53,7 @@ HANDLE WINAPI HookedCreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD
     // Check if the file being opened matches the driver name
     if (wcsstr(lpFileName, DRIVER_NAME) != NULL) {
         hMonitoredDriver = hFile;
-        LogMessage(L"[DriverLogger] Driver %s opened.\n", lpFileName);
+        LogMessage(L"[DriverLogger::OPEN] Driver %s opened.\n", lpFileName);
     }
 
     return hFile;
@@ -65,11 +65,11 @@ BOOL WINAPI HookedReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesTo
     BOOL result = pOriginalReadFile(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped);
 
     if (hFile == hMonitoredDriver && result && *lpNumberOfBytesRead > 0) {
-        LogMessage(L"[DriverLogger] [READ] Data from driver: ");
+        LogMessage(L"[DriverLogger::READ] Data from driver: ");
         for (DWORD i = 0; i < *lpNumberOfBytesRead; i++) {
-            LogMessage(L"[DriverLogger] %02X ", ((unsigned char*)lpBuffer)[i]);
+            LogMessage(L"%02X ", ((unsigned char*)lpBuffer)[i]);
         }
-        LogMessage(L"[DriverLogger] \n");
+        LogMessage(L"\n");
     }
 
     return result;
@@ -81,11 +81,11 @@ BOOL WINAPI HookedWriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytes
     BOOL result = pOriginalWriteFile(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, lpOverlapped);
 
     if (hFile == hMonitoredDriver && result && *lpNumberOfBytesWritten > 0) {
-        LogMessage(L"[DriverLogger] [WRITE] Data to driver: ");
+        LogMessage(L"[DriverLogger::WRITE] Data to driver: ");
         for (DWORD i = 0; i < *lpNumberOfBytesWritten; i++) {
-            LogMessage(L"[DriverLogger] %02X ", ((unsigned char*)lpBuffer)[i]);
+            LogMessage(L"%02X ", ((unsigned char*)lpBuffer)[i]);
         }
-        LogMessage(L"[DriverLogger] \n");
+        LogMessage(L"\n");
     }
 
     return result;
@@ -96,11 +96,11 @@ BOOL WINAPI HookedDeviceIoControl(
     LPVOID lpOutBuffer, DWORD nOutBufferSize, LPDWORD lpBytesReturned, LPOVERLAPPED lpOverlapped)
 {
     if (hDevice == hMonitoredDriver) {
-        wprintf(L"[IOCTL] Control Code: 0x%X\n", dwIoControlCode);
+        wprintf(L"[DriverLogger::IOCTL] Control Code: 0x%X\n", dwIoControlCode);
 
         // Log the input and output buffers if applicable
         if (nInBufferSize > 0 && lpInBuffer != NULL) {
-            wprintf(L"[IOCTL] Input Buffer: ");
+            wprintf(L"[DriverLogger::IOCTL] Input Buffer: ");
             for (DWORD i = 0; i < nInBufferSize; i++) {
                 wprintf(L"%02X ", ((unsigned char*)lpInBuffer)[i]);
             }
@@ -108,7 +108,7 @@ BOOL WINAPI HookedDeviceIoControl(
         }
 
         if (nOutBufferSize > 0 && lpOutBuffer != NULL) {
-            wprintf(L"[IOCTL] Output Buffer: ");
+            wprintf(L"[DriverLogger::IOCTL] Output Buffer: ");
             for (DWORD i = 0; i < nOutBufferSize; i++) {
                 wprintf(L"%02X ", ((unsigned char*)lpOutBuffer)[i]);
             }
@@ -124,7 +124,7 @@ void InitHooks() {
     // Open the log file for writing
     _wfopen_s(&logFile, LOG_FILE_PATH, L"w");
     if (logFile == nullptr) {
-        wprintf(L"Failed to open log file at %s\n", LOG_FILE_PATH);
+        wprintf(L"[DriverLogger] Failed to open log file at %s\n", LOG_FILE_PATH);
         return;
     }
 

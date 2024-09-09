@@ -19,5 +19,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 		// Initialize hooks
 		InitHooks();
 	}
+	else if (ul_reason_for_call == DLL_PROCESS_DETACH) {
+		// Cleanup and disable all hooks
+		Cleanup();
+	}
 	return TRUE;
 }

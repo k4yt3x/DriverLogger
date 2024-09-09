@@ -5,5 +5,6 @@
 #include <Windows.h>
 
 void InitHooks();
+void Cleanup();
 
 #endif // !HOOKS_H

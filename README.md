@@ -2,7 +2,7 @@
 
 A small library that logs IOCTL and other communications between a program and a driver.
 
-![screenshot](https://github.com/user-attachments/assets/45b2c62e-943a-497a-b596-dd092b0467e4)
+![screenshot](https://github.com/user-attachments/assets/955a5cce-ea09-4eaf-a65c-1e88b198e5d8)
 
 The following functions are hooked:
 

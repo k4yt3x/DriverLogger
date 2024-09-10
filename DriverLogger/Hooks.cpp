@@ -11,7 +11,7 @@ const LPCWSTR DRIVER_NAME = L"\\\\.\\\\\\.\\HoYoProtect";
 const LPCWSTR LOG_FILE_PATH = L"C:\\DriverLogger.txt";
 
 // File handle for logging
-FILE* logFile = nullptr;
+FILE* hLogFile = nullptr;
 
 // Function pointer typedefs for the original functions
 typedef HANDLE(WINAPI* PCreateFileW)(LPCWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
@@ -37,9 +37,9 @@ void LogMessage(const wchar_t* format, ...) {
     vwprintf(format, args);
 
     // Print to the log file if it is open
-    if (logFile != nullptr) {
-        vfwprintf(logFile, format, args);
-        fflush(logFile); // Ensure data is written immediately
+    if (hLogFile != nullptr) {
+        vfwprintf(hLogFile, format, args);
+        fflush(hLogFile); // Ensure data is written immediately
     }
 
     va_end(args);
@@ -96,34 +96,38 @@ BOOL WINAPI HookedDeviceIoControl(
     LPVOID lpOutBuffer, DWORD nOutBufferSize, LPDWORD lpBytesReturned, LPOVERLAPPED lpOverlapped)
 {
     if (hDevice == hMonitoredDriver) {
-        wprintf(L"[DriverLogger::IOCTL] Control Code: 0x%X\n", dwIoControlCode);
+        LogMessage(L"[DriverLogger::IOCTL] Control Code: 0x%X\n", dwIoControlCode);
 
-        // Log the input and output buffers if applicable
+        // Log the input buffer if applicable
         if (nInBufferSize > 0 && lpInBuffer != NULL) {
-            wprintf(L"[DriverLogger::IOCTL] Input Buffer: ");
+            LogMessage(L"[DriverLogger::IOCTL] Input Buffer: ");
             for (DWORD i = 0; i < nInBufferSize; i++) {
-                wprintf(L"%02X ", ((unsigned char*)lpInBuffer)[i]);
+                LogMessage(L"%02X ", ((unsigned char*)lpInBuffer)[i]);
             }
-            wprintf(L"\n");
-        }
-
-        if (nOutBufferSize > 0 && lpOutBuffer != NULL) {
-            wprintf(L"[DriverLogger::IOCTL] Output Buffer: ");
-            for (DWORD i = 0; i < nOutBufferSize; i++) {
-                wprintf(L"%02X ", ((unsigned char*)lpOutBuffer)[i]);
-            }
-            wprintf(L"\n");
+            LogMessage(L"\n");
         }
     }
 
-    return pOriginalDeviceIoControl(hDevice, dwIoControlCode, lpInBuffer, nInBufferSize, lpOutBuffer, nOutBufferSize, lpBytesReturned, lpOverlapped);
+    // Call the original DeviceIoControl function
+    BOOL result = pOriginalDeviceIoControl(hDevice, dwIoControlCode, lpInBuffer, nInBufferSize, lpOutBuffer, nOutBufferSize, lpBytesReturned, lpOverlapped);
+
+    // Log the output buffer after the call to the original function
+    if (hDevice == hMonitoredDriver && nOutBufferSize > 0 && lpOutBuffer != NULL) {
+        LogMessage(L"[DriverLogger::IOCTL] Output Buffer: ");
+        for (DWORD i = 0; i < nOutBufferSize; i++) {
+            LogMessage(L"%02X ", ((unsigned char*)lpOutBuffer)[i]);
+        }
+        LogMessage(L"\n");
+    }
+
+    return result;
 }
 
 // Initialize hooks
 void InitHooks() {
     // Open the log file for writing
-    _wfopen_s(&logFile, LOG_FILE_PATH, L"w");
-    if (logFile == nullptr) {
+    _wfopen_s(&hLogFile, LOG_FILE_PATH, L"w");
+    if (hLogFile == nullptr) {
         wprintf(L"[DriverLogger] Failed to open log file at %s\n", LOG_FILE_PATH);
         return;
     }
@@ -151,7 +155,7 @@ void InitHooks() {
 
 	// Hook DeviceIoControl
     if (MH_CreateHookApi(L"kernel32", "DeviceIoControl", &HookedDeviceIoControl, reinterpret_cast<LPVOID*>(&pOriginalDeviceIoControl)) != MH_OK) {
-        wprintf(L"Failed to hook DeviceIoControl.\n");
+        LogMessage(L"Failed to hook DeviceIoControl.\n");
     }
 
     // Enable the hooks
@@ -162,9 +166,9 @@ void InitHooks() {
 
 // Cleanup function for when the DLL is unloaded
 void Cleanup() {
-    if (logFile != nullptr) {
-        fclose(logFile);
-        logFile = nullptr;
+    if (hLogFile != nullptr) {
+        fclose(hLogFile);
+        hLogFile = nullptr;
     }
     MH_Uninitialize();
 }
